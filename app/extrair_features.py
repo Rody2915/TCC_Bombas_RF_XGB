@@ -226,10 +226,13 @@ plt.close()
 print("📊 Gráficos de desempenho atualizados salvos na pasta 'visualizacoes/'!")
 
 # ==============================================================================
-# 6. EXPORTAÇÃO DO CÉREBRO DA IA ATUALIZADO (.PKL)
+# 6. EXPORTAÇÃO DO CÉREBRO DA IA ATUALIZADO (.PKL COMPACTADO)
 # ==============================================================================
-
 caminho_final_pkl = os.path.join(diretorio_modelo_saida, "modelo_rf_v2.pkl")
-joblib.dump(modelo, caminho_final_pkl)
-print(f"\n💾 CÉREBRO DA IA SALVO COM SUCESSO EM: {caminho_final_pkl}")
+
+# OTIMIZAÇÃO CRÍTICA: compress=3 compacta o arquivo para caber no limite do GitHub de 100MB
+joblib.dump(modelo, caminho_final_pkl, compress=3) 
+
+print(f"\n💾 NOVO CÉREBRO DA IA SALVO COM SUCESSO EM: {caminho_final_pkl}")
 print("O sistema está pronto para rodar de forma universal!\n")
+
