@@ -1,0 +1,56 @@
+import pandas as pd
+import numpy as np
+from scipy.stats import kurtosis
+
+arquivo = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_brutos\Dataset\Vibration\Motor-2\75\bearing bpfi 1\Vibration_Motor-2_75_time-bearing bpfi 1-ch4.csv"
+
+df = pd.read_csv(arquivo)
+
+resultados = []
+
+for coluna in df.columns[1:]:
+
+    sinal = df[coluna]
+
+    rms = np.sqrt(np.mean(sinal**2))
+
+    pico = np.max(np.abs(sinal))
+
+    media = np.mean(sinal)
+
+    desvio = np.std(sinal)
+
+    curtose_val = kurtosis(
+        sinal,
+        fisher=False
+    )
+
+    fator_crista = pico / rms
+
+    resultados.append({
+        "Amostra": int(coluna),
+        "RMS": rms,
+        "Pico": pico,
+        "Media": media,
+        "Desvio": desvio,
+        "Curtose": curtose_val,
+        "Fator_Crista": fator_crista
+    })
+
+base_features = pd.DataFrame(resultados)
+
+
+
+
+base_features["Classe"] = "bearing bpfi 1"
+
+print("\n===== RESULTADOS =====\n")
+
+print(base_features)
+
+base_features.to_excel(
+    "base_features.xlsx",
+    index=False
+)
+
+print("\nArquivo base_features.xlsx salvo com sucesso!")

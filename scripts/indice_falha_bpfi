@@ -1,0 +1,20 @@
+import pandas as pd
+
+arquivo = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_brutos\Dataset\Vibration\Motor-2\75\bearing bpfi 1/Vibration_Motor-2_75_time-bearing bpfi 1-ch4.csv"
+
+
+df = pd.read_csv(arquivo)
+
+sinal = df["9"]
+
+indice_max = sinal.idxmax()
+
+indice_min = sinal.idxmin()
+
+print("Índice máximo:", indice_max)
+print("Valor máximo:", sinal.max())
+
+print()
+
+print("Índice mínimo:", indice_min)
+print("Valor mínimo:", sinal.min())
