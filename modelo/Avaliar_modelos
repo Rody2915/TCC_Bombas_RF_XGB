@@ -1,0 +1,105 @@
+import os
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, confusion_matrix, classification_report
+)
+
+# Diretórios do seu projeto
+diretorio_modelo = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\modelo"
+diretorio_bases = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_processados"
+diretorio_visualizacoes = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\visualizacoes\metricas"
+
+os.makedirs(diretorio_visualizacoes, exist_ok=True)
+
+def calcular_specificity_macro(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    especificidades = []
+    for i in range(len(cm)):
+        vp = cm[i, i]
+        fp = cm[:, i].sum() - vp
+        fn = cm[i, :].sum() - vp
+        vn = cm.sum() - (vp + fp + fn)
+        especificidades.append(vn / (vn + fp) if (vn + fp) > 0 else 0.0)
+    return np.mean(especificidades)
+
+velocidades = ["50", "75", "100"]
+resumo_completo = []
+
+for vel in velocidades:
+    print(f"📊 Avaliando modelos salvos para velocidade {vel}%...")
+    
+    # 1. Carrega a base de features já processada e os pacotes .pkl
+    base = pd.read_excel(os.path.join(diretorio_bases, f"base_features_motor2_{vel}pct.xlsx"))
+    pacote_rf = joblib.load(os.path.join(diretorio_modelo, f"modelo_rf_{vel}pct.pkl"))
+    pacote_xgb = joblib.load(os.path.join(diretorio_modelo, f"modelo_xgb_{vel}pct.pkl"))
+    
+    modelo_rf = pacote_rf["modelo"]
+    modelo_xgb = pacote_xgb["modelo"]
+    le = pacote_rf["encoder"]
+    colunas = pacote_rf["colunas"]
+    
+    # 2. Reproduz exatamente a mesma divisão 75% / 25% do treinamento original
+    X = base[colunas]
+    y = base["Classe"]
+    _, X_test, _, y_test = train_test_split(X, y, test_size=0.25, random_state=42, stratify=y)
+    y_test_num = le.transform(y_test)
+    
+    # 3. Gera as predições de classe e as probabilidades (para o AUC-ROC)
+    pred_rf = modelo_rf.predict(X_test)
+    prob_rf = modelo_rf.predict_proba(X_test)
+    
+    pred_xgb = modelo_xgb.predict(X_test)
+    prob_xgb = modelo_xgb.predict_proba(X_test)
+    
+    # 4. Calcula todas as métricas globais e extrai hiperparâmetros vencedores
+    resumo_completo.append({
+        "Velocidade (%)": vel,
+        "Amostras Teste": len(y_test),
+        
+        # Métricas Random Forest
+        "RF Acuracia (%)": round(accuracy_score(y_test_num, pred_rf) * 100, 2),
+        "RF Precisao Macro (%)": round(precision_score(y_test_num, pred_rf, average='macro', zero_division=0) * 100, 2),
+        "RF Recall Macro (%)": round(recall_score(y_test_num, pred_rf, average='macro', zero_division=0) * 100, 2),
+        "RF Specificity Macro (%)": round(calcular_specificity_macro(y_test_num, pred_rf) * 100, 2),
+        "RF F1 Macro (%)": round(f1_score(y_test_num, pred_rf, average='macro', zero_division=0) * 100, 2),
+        "RF F1 Weighted (%)": round(f1_score(y_test_num, pred_rf, average='weighted', zero_division=0) * 100, 2),
+        "RF AUC-ROC Macro (%)": round(roc_auc_score(y_test_num, prob_rf, multi_class='ovr', average='macro') * 100, 2),
+        "RF Hiperparametros": str({k: modelo_rf.get_params()[k] for k in ['n_estimators', 'criterion', 'max_depth', 'min_samples_split']}),
+        
+        # Métricas XGBoost
+        "XGB Acuracia (%)": round(accuracy_score(y_test_num, pred_xgb) * 100, 2),
+        "XGB Precisao Macro (%)": round(precision_score(y_test_num, pred_xgb, average='macro', zero_division=0) * 100, 2),
+        "XGB Recall Macro (%)": round(recall_score(y_test_num, pred_xgb, average='macro', zero_division=0) * 100, 2),
+        "XGB Specificity Macro (%)": round(calcular_specificity_macro(y_test_num, pred_xgb) * 100, 2),
+        "XGB F1 Macro (%)": round(f1_score(y_test_num, pred_xgb, average='macro', zero_division=0) * 100, 2),
+        "XGB F1 Weighted (%)": round(f1_score(y_test_num, pred_xgb, average='weighted', zero_division=0) * 100, 2),
+        "XGB AUC-ROC Macro (%)": round(roc_auc_score(y_test_num, prob_xgb, multi_class='ovr', average='macro') * 100, 2),
+        "XGB Hiperparametros": str({k: modelo_xgb.get_params()[k] for k in ['n_estimators', 'learning_rate', 'max_depth', 'subsample']})
+    })
+    
+        # 5. Salva o relatório detalhado classe a classe (incluindo Specificity e AUC-ROC por falha)
+    rep_rf = pd.DataFrame(classification_report(y_test_num, pred_rf, target_names=le.classes_, output_dict=True, zero_division=0)).transpose()
+    rep_xgb = pd.DataFrame(classification_report(y_test_num, pred_xgb, target_names=le.classes_, output_dict=True, zero_division=0)).transpose()
+
+    for relatorio, y_pred_atual, prob_atual in [(rep_rf, pred_rf, prob_rf), (rep_xgb, pred_xgb, prob_xgb)]:
+        cm = confusion_matrix(y_test_num, y_pred_atual)
+        specs, aucs = [], []
+        for i in range(len(le.classes_)):
+            vp = cm[i, i]
+            fp = cm[:, i].sum() - vp
+            fn = cm[i, :].sum() - vp
+            vn = cm.sum() - (vp + fp + fn)
+            specs.append(vn / (vn + fp) if (vn + fp) > 0 else 0.0)
+            
+            y_binario = (y_test_num == i).astype(int)
+            aucs.append(roc_auc_score(y_binario, prob_atual[:, i]))
+        
+        relatorio["specificity"] = specs + [None, np.mean(specs), None]
+        relatorio["auc_roc"] = aucs + [None, np.mean(aucs), None]
+
+    rep_rf.to_excel(os.path.join(diretorio_visualizacoes, f"metricas_por_classe_rf_{vel}pct.xlsx"))
+    rep_xgb.to_excel(os.path.join(diretorio_visualizacoes, f"metricas_por_classe_xgb_{vel}pct.xlsx"))

@@ -1,0 +1,119 @@
+import os
+import pandas as pd
+
+diretorio_dataset = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_brutos\Dataset\Vibration"
+velocidades = ["50", "75", "100"]
+
+linhas_excel = []
+total_geral_arquivos = 0
+total_geral_colunas = 0
+total_geral_dados = 0
+todas_colunas_geral = []
+
+for vel in velocidades:
+    print(f"\n{'='*100}")
+    print(f"📊 CONTAGEM DE COLUNAS E DADOS - VELOCIDADE {vel}%")
+    print(f"{'='*100}")
+    
+    caminho_potencia = os.path.join(diretorio_dataset, "Motor-2", vel)
+    
+    if not os.path.exists(caminho_potencia):
+        print(f"⚠️ Pasta não encontrada: {caminho_potencia}")
+        continue
+
+    total_arquivos_vel = 0
+    total_colunas_vel = 0
+    total_dados_vel = 0
+    todas_colunas_vel = []
+
+    for subpasta in sorted(os.listdir(caminho_potencia)):
+        caminho_sub = os.path.join(caminho_potencia, subpasta)
+        
+        if os.path.isdir(caminho_sub):
+            arquivos_csv = [f for f in os.listdir(caminho_sub) if f.endswith(".csv")]
+            colunas_na_pasta = 0
+            dados_na_pasta = 0
+            lista_qtd_colunas = []
+            
+            for arq in arquivos_csv:
+                caminho_arq = os.path.join(caminho_sub, arq)
+                
+                # Lê apenas o cabeçalho e desconta a coluna de tempo
+                df_cabecalho = pd.read_csv(caminho_arq, nrows=0)
+                qtd_colunas = len(df_cabecalho.columns) - 1
+                lista_qtd_colunas.append(qtd_colunas)
+                todas_colunas_vel.append(qtd_colunas)
+                todas_colunas_geral.append(qtd_colunas)
+                
+                # Conta rapidamente o número real de linhas de dados
+                with open(caminho_arq, 'r', encoding='utf-8', errors='ignore') as f:
+                    qtd_linhas = sum(1 for _ in f) - 1
+                
+                qtd_dados_arq = qtd_colunas * qtd_linhas
+                
+                colunas_na_pasta += qtd_colunas
+                dados_na_pasta += qtd_dados_arq
+                total_arquivos_vel += 1
+            
+            total_colunas_vel += colunas_na_pasta
+            total_dados_vel += dados_na_pasta
+            
+            # Ordena do menor para o maior arquivo dentro da subpasta
+            if not lista_qtd_colunas:
+                texto_range = ""
+            else:
+                menor = min(lista_qtd_colunas)
+                maior = max(lista_qtd_colunas)
+                texto_range = f"[{menor}]" if menor == maior else f"[{menor} a {maior}]"
+            
+            dados_fmt = f"{dados_na_pasta:,}".replace(",", ".")
+            print(f"📁 {subpasta:<21} | Arquivos: {len(arquivos_csv):>2} | Colunas p/ arquivo: {texto_range:<11} | Total de Colunas: {colunas_na_pasta:>4} | Dados: {dados_fmt:>13}")
+            
+            linhas_excel.append({
+                "Velocidade (%)": f"{vel}%",
+                "Subpasta (Severidade)": subpasta,
+                "Arquivos": len(arquivos_csv),
+                "Amostras (Colunas)": colunas_na_pasta,
+                "Range Colunas/Arq": texto_range,
+                "Quantidade de Dados": dados_na_pasta
+            })
+
+    total_geral_arquivos += total_arquivos_vel
+    total_geral_colunas += total_colunas_vel
+    total_geral_dados += total_dados_vel
+
+    range_vel = f"[{min(todas_colunas_vel)} a {max(todas_colunas_vel)}]" if todas_colunas_vel else ""
+    dados_vel_fmt = f"{total_dados_vel:,}".replace(",", ".")
+    print(f"{'-'*100}")
+    print(f"✅ TOTAL {vel}% -> {total_arquivos_vel} arquivos | {total_colunas_vel} colunas totais | {dados_vel_fmt} dados")
+
+    linhas_excel.append({
+        "Velocidade (%)": f"TOTAL {vel}%",
+        "Subpasta (Severidade)": "---",
+        "Arquivos": total_arquivos_vel,
+        "Amostras (Colunas)": total_colunas_vel,
+        "Range Colunas/Arq": range_vel,
+        "Quantidade de Dados": total_dados_vel
+    })
+
+range_geral = f"[{min(todas_colunas_geral)} a {max(todas_colunas_geral)}]" if todas_colunas_geral else ""
+print(f"\n{'='*100}")
+print(f"🏆 TOTAL GERAL (50%, 75% e 100%)")
+print(f"   Arquivos CSV:   {total_geral_arquivos:,}".replace(",", "."))
+print(f"   Colunas Totais: {total_geral_colunas:,}".replace(",", "."))
+print(f"   Total de dados: {total_geral_dados:,}".replace(",", "."))
+print(f"{'='*100}")
+
+linhas_excel.append({
+    "Velocidade (%)": "TOTAL GERAL",
+    "Subpasta (Severidade)": "Todas as severidades",
+    "Arquivos": total_geral_arquivos,
+    "Range Colunas/Arq": range_geral,
+    "Amostras (Colunas)": total_geral_colunas,
+    "Quantidade de Dados": total_geral_dados
+})
+
+df_export = pd.DataFrame(linhas_excel)
+caminho_excel = "contagem_detalhada_dataset.xlsx"
+df_export.to_excel(caminho_excel, index=False)
+print(f"\n💾 Planilha salva com sucesso em: {os.path.abspath(caminho_excel)}")

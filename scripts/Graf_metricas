@@ -1,0 +1,91 @@
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+diretorio_metricas = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\visualizacoes\metricas"
+df = pd.read_excel(os.path.join(diretorio_metricas, "metricas_completas_rf_vs_xgb.xlsx"))
+
+metricas_nomes = [
+    "Acurácia", "Precisão", "Recall",
+    "Specificity", "F1-Score", "F1-Score\n(Weighted)", "AUC-ROC"
+]
+
+cols_rf = [
+    "RF Acuracia (%)", "RF Precisao Macro (%)", "RF Recall Macro (%)",
+    "RF Specificity Macro (%)", "RF F1 Macro (%)", "RF F1 Weighted (%)", "RF AUC-ROC Macro (%)"
+]
+
+cols_xgb = [
+    "XGB Acuracia (%)", "XGB Precisao Macro (%)", "XGB Recall Macro (%)",
+    "XGB Specificity Macro (%)", "XGB F1 Macro (%)", "XGB F1 Weighted (%)", "XGB AUC-ROC Macro (%)"
+]
+
+x = np.arange(len(metricas_nomes))
+largura = 0.34
+espaco = 0.03
+
+for _, row in df.iterrows():
+    pot = int(row["Potencia (%)"])
+    amostras = int(row["Amostras Teste"])
+    vals_rf = [row[c] for c in cols_rf]
+    vals_xgb = [row[c] for c in cols_xgb]
+    
+    fig, ax = plt.subplots(figsize=(12, 5.8))
+    
+    barras_rf = ax.bar(
+        x - largura/2 - espaco/2, vals_rf, largura,
+        label="Random Forest", color="#1f77b4", edgecolor="#0b3c5d", linewidth=0.8, zorder=3
+    )
+    barras_xgb = ax.bar(
+        x + largura/2 + espaco/2, vals_xgb, largura,
+        label="XGBoost", color="#2ca02c", edgecolor="#145a32", linewidth=0.8, zorder=3
+    )
+    
+    ax.set_ylabel("Desempenho (%)", fontsize=11, fontweight="bold", labelpad=10)
+    ax.set_title(
+        f"Random Forest vs XGBoost — Potência {pot}% (n = {amostras})",
+        fontsize=12.5, fontweight="bold", pad=22
+    )
+    
+    # Escala fixa de 85% a 100% em todos os gráficos
+    ax.set_ylim(85, 100)
+    ax.set_yticks(np.arange(85, 101, 2.5))
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(metricas_nomes, fontsize=10, fontweight="bold")
+    ax.grid(axis="y", linestyle="--", alpha=0.45, zorder=0)
+    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#555555")
+    ax.spines["bottom"].set_color("#555555")
+    
+    # Legenda no canto inferior esquerdo
+    ax.legend(
+        loc="lower left", frameon=True, facecolor="white",
+        edgecolor="#cccccc", framealpha=0.95, fontsize=10.5
+    )
+    
+    for b in barras_rf:
+        ax.annotate(
+            f"{b.get_height():.2f}%",
+            xy=(b.get_x() + b.get_width()/2, b.get_height()),
+            xytext=(-1, 3), textcoords="offset points",
+            ha="center", va="bottom", fontsize=8.5, fontweight="bold",
+            color="#0b3c5d", clip_on=False
+        )
+    for b in barras_xgb:
+        ax.annotate(
+            f"{b.get_height():.2f}%",
+            xy=(b.get_x() + b.get_width()/2, b.get_height()),
+            xytext=(1, 3), textcoords="offset points",
+            ha="center", va="bottom", fontsize=8.5, fontweight="bold",
+            color="#145a32", clip_on=False
+        )
+    
+    plt.tight_layout()
+    caminho_fig = os.path.join(diretorio_metricas, f"comparativo_metricas_{pot}pct.png")
+    plt.savefig(caminho_fig, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"✅ Gráfico final salvo: {caminho_fig}")

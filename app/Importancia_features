@@ -1,0 +1,74 @@
+import os
+import joblib
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Diretórios do seu projeto
+diretorio_modelo = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\modelo"
+diretorio_visualizacoes = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\visualizacoes\importancia_variaveis"
+
+os.makedirs(diretorio_visualizacoes, exist_ok=True)
+velocidades = ["50", "75", "100"]
+
+for vel in velocidades:
+    print(f"📊 Gerando painel comparativo e planilhas RF vs. XGBoost ({vel}%)...")
+    
+    # 1. Carrega os dois pacotes .pkl já treinados
+    pacote_rf = joblib.load(os.path.join(diretorio_modelo, f"modelo_rf_{vel}pct.pkl"))
+    pacote_xgb = joblib.load(os.path.join(diretorio_modelo, f"modelo_xgb_{vel}pct.pkl"))
+    
+    modelo_rf = pacote_rf["modelo"]
+    modelo_xgb = pacote_xgb["modelo"]
+    colunas = pacote_rf["colunas"]
+    
+    # 2. Monta os rankings ordenados para cada algoritmo
+    df_rf = pd.DataFrame({
+        "Variavel": colunas,
+        "Importancia": modelo_rf.feature_importances_
+    }).sort_values(by="Importancia", ascending=False).reset_index(drop=True)
+    
+    df_xgb = pd.DataFrame({
+        "Variavel": colunas,
+        "Importancia": modelo_xgb.feature_importances_
+    }).sort_values(by="Importancia", ascending=False).reset_index(drop=True)
+    
+    # Salva as planilhas completas de ambos os algoritmos para consulta
+    df_rf.to_excel(os.path.join(diretorio_visualizacoes, f"importancia_variaveis_rf_{vel}pct.xlsx"), index=False)
+    df_xgb.to_excel(os.path.join(diretorio_visualizacoes, f"importancia_variaveis_xgb_{vel}pct.xlsx"), index=False)
+    
+    # 3. Cria o painel com dois gráficos lado a lado (RF à esquerda, XGBoost à direita)
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6.5))
+    
+    # Gráfico 1: Random Forest
+    sns.barplot(
+        data=df_rf.head(15), x="Importancia", y="Variavel",
+        hue="Variavel", palette="viridis", legend=False, ax=axes[0]
+    )
+    axes[0].set_title(f"Random Forest)", fontsize=12, fontweight="bold")
+    axes[0].set_xlabel("Peso de Importância", fontsize=10.5)
+    axes[0].set_ylabel("Indicadores Extraídos", fontsize=10.5)
+    axes[0].grid(axis="x", linestyle="--", alpha=0.4)
+    
+    # Gráfico 2: XGBoost
+    sns.barplot(
+        data=df_xgb.head(15), x="Importancia", y="Variavel",
+        hue="Variavel", palette="viridis", legend=False, ax=axes[1]
+    )
+    axes[1].set_title(f"XGBoost)", fontsize=12, fontweight="bold")
+    axes[1].set_xlabel("Peso de Importância", fontsize=10.5)
+    axes[1].set_ylabel("")
+    axes[1].grid(axis="x", linestyle="--", alpha=0.4)
+    
+    fig.suptitle(
+        f"15 indicadores mais relevantes: Random Forest vs XGBoost (Velocidade {vel}%)",
+        fontsize=13.5, fontweight="bold", y=1.02
+    )
+    
+    plt.tight_layout()
+    caminho_png = os.path.join(diretorio_visualizacoes, f"comparativo_importancia_rf_vs_xgb_{vel}pct.png")
+    plt.savefig(caminho_png, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"✅ Painel e planilhas salvos para {vel}%!")
+
+print("\n🎉 Todos os painéis comparativos e planilhas foram gerados com sucesso!")

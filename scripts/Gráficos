@@ -1,0 +1,64 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Configurações físicas do seu sinal (Adaptado para o seu caso de 12 segundos)
+fs = 20000  # Frequência de amostragem padrão (20 kHz)
+duracao = 12  # Duração exata do seu teste em segundos
+N = int(fs * duracao)
+tempo = np.linspace(0, duracao, N)
+
+# --- NOTA PARA O SEU PROJETO ---
+# Para usar os SEUS dados reais do CSV, substitua as linhas abaixo por:
+
+df_teste1 = pd.read_csv(r'C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_brutos\Dataset\Vibration\Motor-2\75\healthy 1\Vibration_Motor-2_75_time-healthy 1-ch4.csv')
+df_teste2 = pd.read_csv(r'C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_brutos\Dataset\Vibration\Motor-2\75\healthy 2\Vibration_Motor-2_75_time-healthy 2-ch4.csv')
+sinal_1 = df_teste1['0'].values
+sinal_2 = df_teste2['0'].values
+# -------------------------------
+
+# Simulando dois sinais Healthy reais com ruído de fundo e flutuação industrial
+np.random.seed(42)
+componente_estavel = 0.5 * np.sin(2 * np.pi * 60 * tempo)  # Componente fundamental senoidal (Ex: rotação)
+ruido_fundo_1 = np.random.normal(0, 0.15, N) + 0.05 * np.sin(2 * np.pi * 180 * tempo)
+ruido_fundo_2 = np.random.normal(0, 0.16, N) + 0.08 * np.sin(2 * np.pi * 220 * tempo)
+
+sinal_1 = componente_estavel + ruido_fundo_1
+sinal_2 = componente_estavel + ruido_fundo_2
+
+# 2. Processamento da FFT para ambos os testes
+frequencias = np.fft.fftfreq(N, d=1/fs)[:N // 2]
+
+fft_sinal1 = np.abs(np.fft.fft(sinal_1))[:N // 2] / N
+fft_sinal2 = np.abs(np.fft.fft(sinal_2))[:N // 2] / N
+
+# Filtro para visualização focada em baixa/média frequência (Ex: até 500 Hz)
+mascara_freq = frequencias <= 500
+frequencias_filtradas = frequencias[mascara_freq]
+fft1_filtrada = fft_sinal1[mascara_freq]
+fft2_filtrada = fft_sinal2[mascara_freq]
+
+# 3. Construção dos Gráficos Comparativos (Domínio do Tempo e Frequência)
+fig, axs = plt.subplots(2, 1, figsize=(11, 7), sharex=False)
+plt.subplots_adjust(hspace=0.4)
+
+# Gráfico 1: Domínio do Tempo (Janela curta de 0.2s para enxergar a onda e as flutuações)
+axs[0].plot(tempo, sinal_1, label='Medição Saudável 1', color='forestgreen', alpha=0.85)
+axs[0].plot(tempo, sinal_2, label='Medição Saudável 2 (Idêntica)', color='dodgerblue', alpha=0.7)
+axs[0].set_xlim(0, 0.2)  # Foco nos primeiros 200 ms para ver o ruído sobreposto
+axs[0].set_title('Sinal de Vibração Bruto no Domínio do Tempo (Condição Saudável)')
+axs[0].set_xlabel('Tempo (s)')
+axs[0].set_ylabel('Amplitude')
+axs[0].grid(True, linestyle='--', alpha=0.5)
+axs[0].legend(loc='upper right')
+
+# Gráfico 2: Domínio da Frequência (FFT)
+axs[1].plot(frequencias_filtradas, fft1_filtrada, label='Espectro Medição 1', color='forestgreen', alpha=0.85)
+axs[1].plot(frequencias_filtradas, fft2_filtrada, label='Espectro Medição 2', color='dodgerblue', alpha=0.7)
+axs[1].set_title('Espectro de Frequência (FFT) - Demonstração de Componentes Espúrias')
+axs[1].set_xlabel('Frequência (Hz)')
+axs[1].set_ylabel('Amplitude Espectral')
+axs[1].grid(True, linestyle='--', alpha=0.5)
+axs[1].legend(loc='upper right')
+
+plt.show()

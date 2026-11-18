@@ -1,0 +1,65 @@
+import os
+import joblib
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, accuracy_score
+
+# Diretórios do seu projeto
+diretorio_modelo = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\modelo"
+diretorio_bases = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\dados_processados"
+diretorio_visualizacoes = r"C:\Users\rodri\OneDrive\Desktop\TCC_Bombas_RF\visualizacoes\matrizes_confusao"
+
+os.makedirs(diretorio_visualizacoes, exist_ok=True)
+velocidades = ["50", "75", "100"]
+
+for vel in velocidades:
+    print(f"📊 Gerando matrizes de confusão para potência {vel}%...")
+    
+    # 1. Carrega a base processada e os modelos salvos (.pkl)
+    base = pd.read_excel(os.path.join(diretorio_bases, f"base_features_motor2_{vel}pct.xlsx"))
+    pacote_rf = joblib.load(os.path.join(diretorio_modelo, f"modelo_rf_{vel}pct.pkl"))
+    pacote_xgb = joblib.load(os.path.join(diretorio_modelo, f"modelo_xgb_{vel}pct.pkl"))
+    
+    modelo_rf = pacote_rf["modelo"]
+    modelo_xgb = pacote_xgb["modelo"]
+    le = pacote_rf["encoder"]
+    colunas = pacote_rf["colunas"]
+    
+    # 2. Reproduz exatamente o mesmo conjunto de teste cego (25%)
+    X = base[colunas]
+    y = base["Classe"]
+    _, X_test, _, y_test = train_test_split(X, y, test_size=0.25, random_state=42, stratify=y)
+    
+    # 3. Gera e salva a Matriz de Confusão do Random Forest
+    pred_rf_texto = le.inverse_transform(modelo_rf.predict(X_test))
+    acc_rf = accuracy_score(y_test, pred_rf_texto) * 100
+    matriz_rf = confusion_matrix(y_test, pred_rf_texto, labels=le.classes_)
+    
+    plt.figure(figsize=(15, 12))
+    sns.heatmap(matriz_rf, annot=True, fmt="d", cmap="Blues", xticklabels=le.classes_, yticklabels=le.classes_)
+    plt.title(f"Matriz de Confusão Random Forest - Velocidade {vel}% (Teste: {acc_rf:.2f}%)", fontsize=13, fontweight="bold")
+    plt.xlabel("Classe Prevista", fontsize=11, fontweight="bold")
+    plt.ylabel("Classe Real", fontsize=11, fontweight="bold")
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
+    plt.savefig(os.path.join(diretorio_visualizacoes, f"matriz_confusao_rf_{vel}pct.png"), dpi=300, bbox_inches="tight")
+    plt.close()
+    
+    # 4. Gera e salva a Matriz de Confusão do XGBoost
+    pred_xgb_texto = le.inverse_transform(modelo_xgb.predict(X_test))
+    acc_xgb = accuracy_score(y_test, pred_xgb_texto) * 100
+    matriz_xgb = confusion_matrix(y_test, pred_xgb_texto, labels=le.classes_)
+    
+    plt.figure(figsize=(15, 12))
+    sns.heatmap(matriz_xgb, annot=True, fmt="d", cmap="Greens", xticklabels=le.classes_, yticklabels=le.classes_)
+    plt.title(f"Matriz de Confusão XGBoost - Velocidade {vel}% (Teste: {acc_xgb:.2f}%)", fontsize=13, fontweight="bold")
+    plt.xlabel("Classe Prevista", fontsize=11, fontweight="bold")
+    plt.ylabel("Classe Real", fontsize=11, fontweight="bold")
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
+    plt.savefig(os.path.join(diretorio_visualizacoes, f"matriz_confusao_xgb_{vel}pct.png"), dpi=300, bbox_inches="tight")
+    plt.close()
+
+print(f"\n✅ Concluído! Todas as 6 matrizes foram salvas em: {diretorio_visualizacoes}")
