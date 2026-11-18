@@ -58,8 +58,6 @@ def extrair_features_matriz(caminho_arquivo):
             amp2 = float(amplitudes_baixas[picos[ordem[1]]])
             freq3 = float(frequencias_baixas[picos[ordem[2]]])
             amp3 = float(amplitudes_baixas[picos[ordem[2]]])
-        else:
-            freq1 = amp1 = freq2 = amp2 = freq3 = amp3 = np.nan        
         
         # --- ESTATÍSTICA MATEMÁTICA (Domínio do Tempo) ---
         rms = np.sqrt(np.mean(sinal ** 2))
